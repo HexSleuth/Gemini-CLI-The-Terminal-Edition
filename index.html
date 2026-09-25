@@ -1,0 +1,3034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemini CLI · The Terminal Edition · Web App</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   RESET + VARIABLES
+   ═══════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:        #f4f4f5;
+  --ink-dim:    #a1a1aa;
+  --ink-faint:  #52525b;
+  --paper:      #0a0a0b;
+  --paper-2:    #121214;
+  --paper-3:    #1a1a1e;
+  --rule:       #27272a;
+  --rule-soft:  #1f1f23;
+  --accent:     #4f8cff;
+  --accent-2:   #8b5cf6;
+  --accent-3:   #22d3ee;
+  --hot:        #f472b6;
+  --warm:       #fbbf24;
+  --good:       #34d399;
+  --bad:        #f87171;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono:  ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+
+  --maxw: 1240px;
+  --radius: 6px;
+}
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(79,140,255,.10), transparent 60%),
+    radial-gradient(ellipse 800px 500px at 90% 0%, rgba(139,92,246,.09), transparent 60%),
+    radial-gradient(ellipse 700px 600px at 50% 110%, rgba(34,211,238,.06), transparent 60%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: .035;
+  background-image:
+    repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 2px);
+  mix-blend-mode: overlay;
+}
+
+::selection { background: var(--accent); color: #fff; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--paper-2); }
+::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+a { color: var(--accent-3); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SHELL
+   ═══════════════════════════════════════════════════════════════════════ */
+.shell {
+  position: relative;
+  z-index: 2;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 24px 96px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TOP STRIP
+   ═══════════════════════════════════════════════════════════════════════ */
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0 12px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  flex-wrap: wrap;
+}
+.strip-left, .strip-right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.strip .dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 0 rgba(52,211,153,.6);
+  animation: pulse 2.4s infinite;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.strip .dot.off { background: var(--ink-faint); animation: none; }
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(52,211,153,.55); }
+  70%  { box-shadow: 0 0 0 9px rgba(52,211,153,0); }
+  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+}
+.strip a { color: var(--ink-dim); border-bottom: 1px solid transparent; }
+.strip a:hover { color: var(--accent-3); border-bottom-color: var(--accent-3); text-decoration: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MASTHEAD
+   ═══════════════════════════════════════════════════════════════════════ */
+.masthead {
+  padding: 40px 0 26px;
+  border-bottom: 3px double var(--rule);
+  text-align: center;
+  position: relative;
+}
+.masthead-kicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .42em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  margin-bottom: 18px;
+}
+.masthead-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: clamp(48px, 10vw, 116px);
+  line-height: .92;
+  letter-spacing: -.03em;
+  background: linear-gradient(100deg, #ffffff 0%, #c7d2fe 30%, #a5b4fc 50%, #67e8f9 75%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 220% 100%;
+  animation: sheen 9s ease-in-out infinite;
+  margin-bottom: 8px;
+}
+@keyframes sheen {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.masthead-title .amp { font-style: italic; font-weight: 400; }
+.masthead-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(15px, 2vw, 21px);
+  color: var(--ink-dim);
+  margin-top: 6px;
+}
+.masthead-meta {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.masthead-meta span { display: inline-flex; align-items: center; gap: 7px; }
+.masthead-meta b { color: var(--ink); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════════════════════════════════ */
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  gap: 4px;
+  padding: 12px 0;
+  margin-bottom: 30px;
+  background: linear-gradient(to bottom, var(--paper) 65%, rgba(10,10,11,.86));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tabs::-webkit-scrollbar { height: 4px; }
+.tabs::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+
+.tab {
+  appearance: none;
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  padding: 9px 15px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .16s ease;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tab .num { color: var(--ink-faint); font-weight: 700; }
+.tab:hover {
+  color: var(--ink);
+  border-color: #3f3f46;
+  background: var(--paper-3);
+  transform: translateY(-1px);
+}
+.tab.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(79,140,255,.24), rgba(79,140,255,.10));
+  box-shadow: 0 0 0 1px rgba(79,140,255,.28), 0 4px 18px -8px rgba(79,140,255,.7);
+}
+.tab.active .num { color: var(--accent-3); }
+.tab .pip {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--rule);
+}
+.tab .pip.ok { background: var(--good); box-shadow: 0 0 6px var(--good); }
+.tab .pip.warn { background: var(--warm); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE
+   ═══════════════════════════════════════════════════════════════════════ */
+.page { display: none; }
+.page.active { display: block; animation: pageIn .42s cubic-bezier(.22,.7,.3,1) both; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.grid-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 56px;
+}
+@media (max-width: 980px) {
+  .grid-2col { grid-template-columns: 1fr; gap: 40px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ARTICLE (magazine style)
+   ═══════════════════════════════════════════════════════════════════════ */
+.article { min-width: 0; }
+
+.article h1 {
+  font-family: var(--serif);
+  font-size: clamp(32px, 5.2vw, 52px);
+  line-height: 1.06;
+  letter-spacing: -.02em;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.article h1::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin-top: 20px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+  border-radius: 2px;
+}
+.article .standfirst {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(17px, 2.2vw, 21px);
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin: 26px 0 34px;
+  max-width: 62ch;
+}
+.article h2 {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  margin: 46px 0 16px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+.article h2::before {
+  content: "";
+  position: absolute;
+  left: 0; bottom: -1px;
+  width: 44px; height: 1px;
+  background: var(--accent-3);
+}
+.article h3 {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 30px 0 10px;
+  color: var(--ink);
+}
+.article p {
+  font-family: var(--serif);
+  font-size: 17.5px;
+  line-height: 1.72;
+  color: #d9d9dd;
+  margin: 0 0 18px;
+  max-width: 68ch;
+}
+.article p:first-of-type::first-letter {
+  font-family: var(--serif);
+  float: left;
+  font-size: 3.4em;
+  line-height: .82;
+  padding: 6px 12px 0 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+.article ul, .article ol {
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  max-width: 68ch;
+}
+.article ul li, .article ol li {
+  position: relative;
+  padding-left: 26px;
+  margin-bottom: 11px;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  color: #d9d9dd;
+}
+.article ul li::before {
+  content: "";
+  position: absolute;
+  left: 4px; top: .72em;
+  width: 8px; height: 2px;
+  background: var(--accent-3);
+  border-radius: 1px;
+}
+.article ol { counter-reset: item; }
+.article ol li { counter-increment: item; padding-left: 32px; }
+.article ol li::before {
+  content: counter(item, decimal-leading-zero);
+  position: absolute;
+  left: 0; top: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: .06em;
+}
+.pullquote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(20px, 3vw, 27px);
+  line-height: 1.4;
+  color: var(--ink);
+  margin: 36px 0;
+  padding: 6px 0 6px 26px;
+  border-left: 3px solid;
+  border-image: linear-gradient(180deg, var(--accent), var(--accent-2), var(--hot)) 1;
+  position: relative;
+}
+.pullquote::before {
+  content: "\201C";
+  position: absolute;
+  left: 12px; top: -22px;
+  font-family: var(--serif);
+  font-size: 74px;
+  color: var(--rule);
+  line-height: 1;
+  opacity: .55;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CODE / MONO
+   ═══════════════════════════════════════════════════════════════════════ */
+.code, code.inline {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #e4e4e7;
+}
+.code {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 4px;
+  padding: 15px 18px;
+  margin: 20px 0;
+  overflow-x: auto;
+  white-space: pre;
+  position: relative;
+}
+.code::before {
+  content: "shell";
+  position: absolute;
+  top: 0; right: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--paper-3);
+  padding: 3px 9px;
+  border-bottom-left-radius: 4px;
+  border-left: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.code .c { color: #71717a; }
+.code .k { color: #c084fc; }
+.code .s { color: #86efac; }
+.code .p { color: #67e8f9; }
+
+code.inline {
+  font-size: .88em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--paper-3);
+  border: 1px solid var(--rule);
+  color: var(--accent-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NOTE
+   ═══════════════════════════════════════════════════════════════════════ */
+.note {
+  background: linear-gradient(180deg, rgba(251,191,36,.07), rgba(251,191,36,.02));
+  border: 1px solid rgba(251,191,36,.24);
+  border-left: 3px solid var(--warm);
+  border-radius: 4px;
+  padding: 15px 20px;
+  margin: 24px 0;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: #e9d9a8;
+}
+.note strong { color: var(--warm); font-weight: 700; }
+
+.info {
+  background: linear-gradient(180deg, rgba(34,211,238,.06), rgba(34,211,238,.01));
+  border: 1px solid rgba(34,211,238,.22);
+  border-left: 3px solid var(--accent-3);
+  border-radius: 4px;
+  padding: 15px 20px;
+  margin: 24px 0;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: #a5f3fc;
+}
+.info strong { color: var(--accent-3); }
+
+.danger {
+  background: linear-gradient(180deg, rgba(248,113,113,.06), rgba(248,113,113,.01));
+  border: 1px solid rgba(248,113,113,.22);
+  border-left: 3px solid var(--bad);
+  border-radius: 4px;
+  padding: 15px 20px;
+  margin: 24px 0;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: #fecaca;
+}
+.danger strong { color: var(--bad); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BADGES / CHIPS
+   ═══════════════════════════════════════════════════════════════════════ */
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 6px; }
+.badge {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  color: var(--ink-dim);
+  transition: all .15s;
+}
+.badge:hover { border-color: var(--accent); color: var(--accent-3); }
+.badge.g { border-color: rgba(52,211,153,.35); color: var(--good); }
+.badge.b { border-color: rgba(79,140,255,.35); color: var(--accent); }
+.badge.p { border-color: rgba(139,92,246,.35); color: var(--accent-2); }
+.badge.h { border-color: rgba(244,114,182,.35); color: var(--hot); }
+.badge.w { border-color: rgba(251,191,36,.35); color: var(--warm); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════════════════ */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  align-self: start;
+  position: sticky;
+  top: 74px;
+}
+@media (max-width: 980px) { .sidebar { position: static; } }
+
+.box {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--paper-2), rgba(18,18,20,.5));
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.box:hover { border-color: #3f3f46; }
+.box-head {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  padding: 11px 16px;
+  background: rgba(34,211,238,.05);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.box-head::before {
+  content: "";
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent-3);
+  box-shadow: 0 0 8px var(--accent-3);
+  flex-shrink: 0;
+}
+.box-body { padding: 14px 16px; }
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--rule-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-row .k { color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; font-size: 10px; }
+.stat-row .v { color: var(--ink); font-weight: 600; font-size: 14px; }
+.stat-row .v.acc { color: var(--accent-3); }
+.stat-row .v.good { color: var(--good); }
+.stat-row .v.warm { color: var(--warm); }
+.stat-row .v.purp { color: var(--accent-2); }
+
+.big-stat { text-align: center; padding: 12px 6px 14px; }
+.big-stat .num {
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  background: linear-gradient(120deg, var(--accent), var(--accent-3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: block;
+}
+.big-stat .lbl {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-top: 8px;
+  display: block;
+}
+
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 4px 9px;
+  border-radius: 3px;
+  background: var(--paper-3);
+  border: 1px solid var(--rule);
+  color: var(--ink-dim);
+  transition: all .15s;
+}
+.chip:hover { border-color: var(--accent-2); color: var(--accent-2); }
+
+.mini-list { list-style: none; }
+.mini-list li {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  padding: 6px 0 6px 14px;
+  border-bottom: 1px dashed var(--rule-soft);
+  position: relative;
+}
+.mini-list li:last-child { border-bottom: none; }
+.mini-list li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-size: 9px;
+  top: 8px;
+}
+.mini-list li b { color: var(--ink); font-weight: 600; }
+.mini-list li .tag {
+  color: var(--warm);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.kbd {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--paper-3);
+  color: var(--ink-dim);
+  line-height: 1.4;
+  min-width: 20px;
+  text-align: center;
+}
+.kbd-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+}
+.kbd-row:not(:last-child) { border-bottom: 1px dashed var(--rule-soft); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════════════════════════ */
+.btn {
+  appearance: none;
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .16s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.btn:hover {
+  border-color: #3f3f46;
+  background: var(--paper-3);
+  transform: translateY(-1px);
+}
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn.primary {
+  border-color: var(--accent);
+  color: #fff;
+  background: linear-gradient(180deg, rgba(79,140,255,.30), rgba(79,140,255,.12));
+  box-shadow: 0 4px 18px -8px rgba(79,140,255,.7);
+}
+.btn.primary:hover {
+  background: linear-gradient(180deg, rgba(79,140,255,.44), rgba(79,140,255,.20));
+  box-shadow: 0 6px 26px -8px rgba(79,140,255,.9);
+}
+.btn.good { border-color: rgba(52,211,153,.5); color: var(--good); }
+.btn.good:hover { background: rgba(52,211,153,.12); }
+.btn.bad { border-color: rgba(248,113,113,.5); color: var(--bad); }
+.btn.bad:hover { background: rgba(248,113,113,.12); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 11px; font-size: 10.5px; }
+.btn.block { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FORM CONTROLS
+   ═══════════════════════════════════════════════════════════════════════ */
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+.field-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.field-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.input, .textarea, .select {
+  display: block;
+  width: 100%;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 11px 14px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+}
+.input:focus, .textarea:focus, .select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,140,255,.15);
+}
+.textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  font-family: var(--mono);
+}
+.input-group { display: flex; gap: 8px; align-items: stretch; }
+.input-group .input { flex: 1; }
+
+.select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%),
+    linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 40px;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MODEL SELECTOR / LIST
+   ═══════════════════════════════════════════════════════════════════════ */
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.model-card {
+  position: relative;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--paper-2), rgba(18,18,20,.4));
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all .16s ease;
+  text-align: left;
+  appearance: none;
+  font: inherit;
+  color: inherit;
+}
+.model-card:hover {
+  border-color: #3f3f46;
+  transform: translateY(-2px);
+  background: var(--paper-3);
+}
+.model-card.selected {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(79,140,255,.16), rgba(79,140,255,.04));
+  box-shadow: 0 0 0 1px rgba(79,140,255,.35), 0 8px 26px -12px rgba(79,140,255,.9);
+}
+.model-card.selected::after {
+  content: "✓";
+  position: absolute;
+  top: 10px; right: 12px;
+  color: var(--accent-3);
+  font-weight: 700;
+  font-size: 14px;
+}
+.model-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+  word-break: break-all;
+  padding-right: 20px;
+}
+.model-desc {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.model-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.model-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--paper-3);
+  border: 1px solid var(--rule);
+  color: var(--ink-faint);
+}
+.model-tag.pro { color: var(--accent-2); border-color: rgba(139,92,246,.35); }
+.model-tag.flash { color: var(--warm); border-color: rgba(251,191,36,.35); }
+.model-tag.lite { color: var(--good); border-color: rgba(52,211,153,.35); }
+.model-tag.preview { color: var(--hot); border-color: rgba(244,114,182,.35); }
+.model-tag.image { color: var(--accent-3); border-color: rgba(34,211,238,.35); }
+.model-tag.robotics { color: #a3e635; border-color: rgba(163,230,53,.35); }
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 20px 0;
+}
+.spacer { flex: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHAT
+   ═══════════════════════════════════════════════════════════════════════ */
+.chat-wrap {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: calc(100vh - 320px);
+  min-height: 480px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.chat-log {
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.msg {
+  display: flex;
+  gap: 12px;
+  max-width: 90%;
+  animation: msgIn .28s cubic-bezier(.22,.7,.3,1) both;
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg.ai { align-self: flex-start; }
+.msg .avatar {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--rule);
+}
+.msg.user .avatar {
+  background: rgba(34,211,238,.14);
+  border-color: rgba(34,211,238,.35);
+  color: var(--accent-3);
+}
+.msg.ai .avatar {
+  background: rgba(139,92,246,.14);
+  border-color: rgba(139,92,246,.35);
+  color: var(--accent-2);
+}
+.msg .bubble {
+  background: var(--paper-3);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 12px 15px;
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.msg.user .bubble { background: rgba(34,211,238,.06); border-color: rgba(34,211,238,.22); }
+.msg.ai .bubble { background: rgba(139,92,246,.06); border-color: rgba(139,92,246,.22); }
+.msg .bubble code {
+  font-family: var(--mono);
+  font-size: .86em;
+  background: rgba(0,0,0,.35);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--accent-3);
+}
+.msg .bubble pre {
+  background: rgba(0,0,0,.4);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #e4e4e7;
+}
+.msg .meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.chat-input-wrap {
+  border-top: 1px solid var(--rule);
+  padding: 12px;
+  background: var(--paper-3);
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.chat-input {
+  flex: 1;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 11px 14px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  min-height: 44px;
+  max-height: 160px;
+  line-height: 1.5;
+}
+.chat-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,140,255,.15); }
+.typing {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  padding: 4px 0;
+}
+.typing span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  animation: bounce 1.2s infinite;
+}
+.typing span:nth-child(2) { animation-delay: .15s; }
+.typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   REFACTOR / DIFF
+   ═══════════════════════════════════════════════════════════════════════ */
+.refactor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 20px 0;
+}
+@media (max-width: 900px) { .refactor-grid { grid-template-columns: 1fr; } }
+
+.editor-pane {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-3);
+}
+.editor-title {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.editor-body {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 14px;
+  min-height: 300px;
+  max-height: 520px;
+  overflow: auto;
+  white-space: pre;
+  color: #e4e4e7;
+  background: var(--paper-2);
+  border: none;
+  outline: none;
+  width: 100%;
+  resize: vertical;
+  tab-size: 2;
+}
+.diff-body {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  padding: 14px;
+  min-height: 300px;
+  max-height: 520px;
+  overflow: auto;
+  white-space: pre;
+  color: #e4e4e7;
+  background: var(--paper-2);
+  tab-size: 2;
+}
+.diff-line { display: block; padding: 0 4px; }
+.diff-line.add { background: rgba(52,211,153,.10); color: #bbf7d0; }
+.diff-line.del { background: rgba(248,113,113,.10); color: #fecaca; }
+.diff-line.hunk { color: var(--accent-3); background: rgba(34,211,238,.06); }
+.diff-line.meta { color: var(--ink-faint); }
+.diff-line.ctx { color: #a1a1aa; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROGRESS / SPINNER
+   ═══════════════════════════════════════════════════════════════════════ */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid var(--rule);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  width: 0;
+  z-index: 500;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+  transition: width .3s ease;
+  box-shadow: 0 0 12px rgba(79,140,255,.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TOAST / MODAL
+   ═══════════════════════════════════════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translate(-50%, 24px);
+  z-index: 999;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .08em;
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: rgba(24,24,27,.96);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 12px 40px -12px rgba(0,0,0,.9);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  max-width: 90vw;
+  text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-3);
+  margin-right: 9px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px var(--accent-3);
+}
+.toast.bad::before { background: var(--bad); box-shadow: 0 0 8px var(--bad); }
+.toast.good::before { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.toast.warn::before { background: var(--warm); box-shadow: 0 0 8px var(--warm); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════════════════════ */
+.foot {
+  margin-top: 80px;
+  padding-top: 26px;
+  border-top: 3px double var(--rule);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.foot a { color: var(--ink-dim); border-bottom: 1px solid transparent; }
+.foot a:hover { color: var(--accent-3); border-bottom-color: var(--accent-3); text-decoration: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .shell { padding: 0 16px 72px; }
+  .masthead { padding: 26px 0 20px; }
+  .masthead-meta { gap: 14px; font-size: 10px; }
+  .article p, .article ul li, .article ol li { font-size: 16px; }
+  .code { font-size: 12px; padding: 13px 14px; }
+  .article p:first-of-type::first-letter { font-size: 2.6em; padding-right: 8px; }
+  .tab { padding: 8px 12px; font-size: 10px; }
+  .chat-wrap { height: calc(100vh - 260px); min-height: 400px; }
+  .msg { max-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="toast" id="toast"></div>
+
+<div class="shell">
+
+  <!-- ═══ TOP STRIP ═══ -->
+  <div class="strip">
+    <div class="strip-left">
+      <span><span class="dot" id="connDot"></span><span id="connLabel">Ready</span></span>
+      <span id="stripDate">—</span>
+    </div>
+    <div class="strip-right">
+      <span>Issue 01</span>
+      <span id="stripModel">no model</span>
+      <a href="https://github.com/google-gemini/gemini-cli" target="_blank" rel="noopener">github ↗</a>
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">get key ↗</a>
+    </div>
+  </div>
+
+  <!-- ═══ MASTHEAD ═══ -->
+  <header class="masthead">
+    <div class="masthead-kicker">The Terminal Edition · Agent Web App</div>
+    <h1 class="masthead-title">Gemini <span class="amp">CLI</span></h1>
+    <p class="masthead-sub">An open-source AI agent · bring the power of Gemini directly into your browser</p>
+    <div class="masthead-meta">
+      <span>◆ <b id="metaVersion">—</b> latest</span>
+      <span>◆ <b id="metaStars">—</b> stars</span>
+      <span>◆ <b id="metaModel">no model</b> active</span>
+      <span>◆ <b>Apache 2.0</b> licence</span>
+    </div>
+  </header>
+
+  <!-- ═══ TABS ═══ -->
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Sections">
+    <button class="tab active" data-page="0" role="tab" aria-selected="true">
+      <span class="num">01</span>Cover
+    </button>
+    <button class="tab" data-page="1" role="tab" aria-selected="false">
+      <span class="pip" id="pipKey"></span><span class="num">02</span>API Key
+    </button>
+    <button class="tab" data-page="2" role="tab" aria-selected="false">
+      <span class="pip" id="pipModels"></span><span class="num">03</span>Models
+    </button>
+    <button class="tab" data-page="3" role="tab" aria-selected="false">
+      <span class="num">04</span>Chat
+    </button>
+    <button class="tab" data-page="4" role="tab" aria-selected="false">
+      <span class="num">05</span>Refactor
+    </button>
+    <button class="tab" data-page="5" role="tab" aria-selected="false">
+      <span class="num">06</span>Colophon
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PAGE 0 · COVER
+       ═══════════════════════════════════════════════════════════════════ -->
+  <article class="page active" data-page="0" role="tabpanel">
+    <div class="grid-2col">
+      <div class="article">
+        <h1>The agent that lives in your browser</h1>
+        <p class="standfirst">
+          A complete single-file web app for the Gemini API. Save your key,
+          fetch live models, chat with the selected model, and refactor code —
+          all in one page, no build step, no dependencies.
+        </p>
+
+        <div class="badges">
+          <span class="badge g">Free tier</span>
+          <span class="badge b">Gemini 3 models</span>
+          <span class="badge p">1M token context</span>
+          <span class="badge h">Refactoring agent</span>
+          <span class="badge w">10 models bundled</span>
+        </div>
+
+        <p>
+          The Gemini CLI brings Gemini directly into your terminal. This web
+          app mirrors that experience for the browser: same free tier, same
+          models, same extensibility — but with a magazine interface and a
+          built-in code refactoring agent that streams structured output and
+          shows you a real diff before you apply anything.
+        </p>
+
+        <blockquote class="pullquote">
+          From your prompt to the model — without ever leaving the page.
+        </blockquote>
+
+        <h2>What you can do here</h2>
+        <ul>
+          <li><strong>Save your API key</strong> — stored locally in your browser, never sent anywhere except Google's API.</li>
+          <li><strong>Fetch the live model list</strong> — or use the bundled fallback list of ten current models.</li>
+          <li><strong>Chat</strong> with the selected model, with a scrolling conversation history.</li>
+          <li><strong>Refactor code</strong> — paste source, describe the change, get a diff, apply when ready.</li>
+          <li><strong>Keyboard-first navigation</strong> — <span class="kbd">1</span>–<span class="kbd">6</span> for sections, <span class="kbd">R</span> to refresh.</li>
+        </ul>
+
+        <h2>Get started in three steps</h2>
+        <ol>
+          <li>Get a free API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</li>
+          <li>Paste it into the <strong>API Key</strong> tab and click Save.</li>
+          <li>Open the <strong>Models</strong> tab, fetch the list, and pick one.</li>
+        </ol>
+
+        <div class="info">
+          <strong>Privacy.</strong> Your API key is stored only in this
+          browser's <code class="inline">localStorage</code>. It is sent only
+          to <code class="inline">generativelanguage.googleapis.com</code>,
+          directly from your browser. No intermediate server, no logging.
+        </div>
+
+        <h2>Bundled model list</h2>
+        <p>
+          If the API is unreachable — offline, rate-limited, or behind a
+          firewall — the app falls back to this curated list of ten current
+          models, including the newest Gemini 3 series and the robotics
+          preview.
+        </p>
+        <div class="code"><span class="c"># bundled fallback models</span>
+gemini-3.1-flash-lite        <span class="c"># fast · cheap · Gemini 3</span>
+gemini-3-flash-preview       <span class="c"># preview · Gemini 3</span>
+gemini-3.1-pro-preview       <span class="c"># highest reasoning</span>
+gemini-2.5-flash-image       <span class="c"># multimodal image</span>
+gemini-2.5-pro               <span class="c"># stable flagship</span>
+gemini-flash-latest          <span class="c"># rolling alias</span>
+gemini-flash-lite-latest     <span class="c"># rolling lite alias</span>
+gemini-2.5-flash-lite        <span class="c"># efficient</span>
+gemini-2.0-flash-lite        <span class="c"># legacy</span>
+gemini-robotics-er-1.6-preview  <span class="c"># robotics preview</span></div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="box">
+          <div class="box-head">Status</div>
+          <div class="box-body">
+            <div class="stat-row"><span class="k">API key</span><span class="v" id="coverKeyState">not set</span></div>
+            <div class="stat-row"><span class="k">Model</span><span class="v acc" id="coverModel">none</span></div>
+            <div class="stat-row"><span class="k">Models cached</span><span class="v" id="coverModelsCount">0</span></div>
+            <div class="stat-row"><span class="k">Chat messages</span><span class="v" id="coverChatCount">0</span></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Live from GitHub</div>
+          <div class="box-body">
+            <div class="big-stat">
+              <span class="num" id="statStars">—</span>
+              <span class="lbl">Stars</span>
+            </div>
+            <div class="stat-row"><span class="k">Forks</span><span class="v" id="statForks">—</span></div>
+            <div class="stat-row"><span class="k">Open issues</span><span class="v" id="statIssues">—</span></div>
+            <div class="stat-row"><span class="k">Latest</span><span class="v acc" id="statLatest">—</span></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Quick actions</div>
+          <div class="box-body" style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn block primary" onclick="App.goto(1)">Set up API key</button>
+            <button class="btn block" onclick="App.goto(2)">Fetch models</button>
+            <button class="btn block" onclick="App.goto(3)">Open chat</button>
+            <button class="btn block" onclick="App.goto(4)">Open refactor</button>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Keyboard</div>
+          <div class="box-body">
+            <div class="kbd-row"><span>Jump to section</span><span class="kbd">1</span>–<span class="kbd">6</span></div>
+            <div class="kbd-row"><span>Previous / next</span><span class="kbd">←</span><span class="kbd">→</span></div>
+            <div class="kbd-row"><span>Refresh models</span><span class="kbd">R</span></div>
+            <div class="kbd-row"><span>Focus chat input</span><span class="kbd">/</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </article>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PAGE 1 · API KEY
+       ═══════════════════════════════════════════════════════════════════ -->
+  <article class="page" data-page="1" role="tabpanel">
+    <div class="grid-2col">
+      <div class="article">
+        <h1>Save your API key</h1>
+        <p class="standfirst">
+          Your key is stored only in this browser. It is sent only to Google's
+          Generative Language API, directly from your browser.
+        </p>
+
+        <h2>Step 1 · Get a key</h2>
+        <p>
+          Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>,
+          sign in with your Google account, and click
+          <em>Create API key</em>. The free tier includes 60 requests per
+          minute and 1,000 requests per day with Gemini 3 models.
+        </p>
+
+        <h2>Step 2 · Paste and save</h2>
+        <form id="keyForm" onsubmit="return false;" autocomplete="off">
+          <label class="field">
+            <span class="field-label">Gemini API key</span>
+            <div class="input-group">
+              <input class="input" type="password" id="apiKeyInput" placeholder="AIza…" autocomplete="off" spellcheck="false">
+              <button type="button" class="btn" id="toggleKeyBtn" onclick="App.toggleKeyVisibility()">Show</button>
+            </div>
+            <span class="field-hint">
+              Starts with <code class="inline">AIza</code>. You can paste the
+              whole key — it will not be trimmed or modified.
+            </span>
+          </label>
+
+          <div class="toolbar">
+            <button class="btn primary" onclick="App.saveKey()">Save key</button>
+            <button class="btn" onclick="App.validateKey()">Validate key</button>
+            <div class="spacer"></div>
+            <button class="btn bad" onclick="App.clearKey()">Clear key</button>
+          </div>
+        </form>
+
+        <div id="keyStatus"></div>
+
+        <h2>How validation works</h2>
+        <p>
+          When you click <em>Validate key</em>, the app makes a small request
+          to the <code class="inline">models.list</code> endpoint. If the key
+          is valid you will see a green confirmation and the model list will
+          be populated. If it is invalid you will see the exact error message
+          Google returns.
+        </p>
+
+        <div class="note">
+          <strong>Note.</strong> Browser CORS policy allows direct calls to the
+          Generative Language API. If you are behind a corporate proxy that
+          blocks it, the fallback model list will still work, but chat and
+          refactoring will not.
+        </div>
+
+        <h2>Environment overrides</h2>
+        <p>
+          If you prefer not to persist the key, you can set it for the current
+          session only by opening the browser console and running:
+        </p>
+        <div class="code"><span class="c">// set a key for this session only</span>
+<span class="k">sessionStorage</span>.setItem(<span class="s">'gemini.apiKey'</span>, <span class="s">'AIza...'</span>)</div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="box">
+          <div class="box-head">Current state</div>
+          <div class="box-body">
+            <div class="stat-row"><span class="k">Key saved</span><span class="v" id="keyStateBox">no</span></div>
+            <div class="stat-row"><span class="k">Masked</span><span class="v" id="keyMaskedBox">—</span></div>
+            <div class="stat-row"><span class="k">Storage</span><span class="v purp">localStorage</span></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Free tier</div>
+          <div class="box-body">
+            <div class="stat-row"><span class="k">Rate</span><span class="v good">60 req/min</span></div>
+            <div class="stat-row"><span class="k">Daily</span><span class="v good">1,000 req</span></div>
+            <div class="stat-row"><span class="k">Models</span><span class="v acc">Gemini 3</span></div>
+            <div class="stat-row"><span class="k">Context</span><span class="v acc">1M tokens</span></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Security</div>
+          <div class="box-body">
+            <ul class="mini-list">
+              <li><b>Local only</b> — never sent to any server other than Google</li>
+              <li><b>Not logged</b> — no analytics, no telemetry</li>
+              <li><b>Clearable</b> — the Clear key button wipes it instantly</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Get a key</div>
+          <div class="box-body">
+            <a class="btn block primary" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Open AI Studio ↗</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </article>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PAGE 2 · MODELS
+       ═══════════════════════════════════════════════════════════════════ -->
+  <article class="page" data-page="2" role="tabpanel">
+    <div class="grid-2col">
+      <div class="article">
+        <h1>Fetch &amp; select a model</h1>
+        <p class="standfirst">
+          The app fetches the live model list from the Gemini API. If the API
+          is unreachable, it falls back to a bundled list of ten current
+          models.
+        </p>
+
+        <div class="toolbar">
+          <button class="btn primary" onclick="App.fetchModels()">
+            <span id="fetchBtnLabel">Fetch models</span>
+          </button>
+          <button class="btn" onclick="App.loadFallbackModels()">Use bundled list</button>
+          <div class="spacer"></div>
+          <span class="badge" id="modelCountBadge">0 models</span>
+        </div>
+
+        <div id="modelStatus"></div>
+
+        <h2>Model list</h2>
+        <div class="model-grid" id="modelGrid">
+          <div class="info" style="grid-column:1/-1;">
+            Click <strong>Fetch models</strong> above to load the list, or
+            <strong>Use bundled list</strong> to load the built-in ten models.
+          </div>
+        </div>
+
+        <h2>About the bundled list</h2>
+        <p>
+          The bundled list contains ten current models covering the full range
+          from ultra-fast lite models to the highest-reasoning Pro previews,
+          plus the multimodal image model and the robotics research preview.
+        </p>
+        <ul>
+          <li><strong>gemini-3.1-flash-lite</strong> — the fastest Gemini 3 tier, ideal for chat and quick refactors.</li>
+          <li><strong>gemini-3-flash-preview</strong> — the preview flash model with Gemini 3 reasoning.</li>
+          <li><strong>gemini-3.1-pro-preview</strong> — the highest reasoning tier, best for complex refactors.</li>
+          <li><strong>gemini-2.5-flash-image</strong> — the multimodal image model.</li>
+          <li><strong>gemini-2.5-pro</strong> — the stable flagship for production use.</li>
+          <li><strong>gemini-flash-latest</strong> &amp; <strong>gemini-flash-lite-latest</strong> — rolling aliases that always point at the newest flash model.</li>
+          <li><strong>gemini-2.5-flash-lite</strong> &amp; <strong>gemini-2.0-flash-lite</strong> — efficient tiers for high-volume use.</li>
+          <li><strong>gemini-robotics-er-1.6-preview</strong> — the embodied-reasoning research preview.</li>
+        </ul>
+      </div>
+
+      <aside class="sidebar">
+        <div class="box">
+          <div class="box-head">Selected model</div>
+          <div class="box-body">
+            <div class="stat-row"><span class="k">Name</span><span class="v acc" id="selectedModelSide">none</span></div>
+            <div class="stat-row"><span class="k">Source</span><span class="v" id="selectedModelSource">—</span></div>
+            <div class="stat-row"><span class="k">Count</span><span class="v" id="modelsCountSide">0</span></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">API endpoint</div>
+          <div class="box-body">
+            <ul class="mini-list">
+              <li><b>models.list</b><br><code style="font-size:10px;color:var(--ink-faint);">/v1beta/models</code></li>
+              <li><b>generateContent</b><br><code style="font-size:10px;color:var(--ink-faint);">/v1beta/models/{model}:generateContent</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Bundled models</div>
+          <div class="box-body">
+            <div class="chip-list" id="bundledChips">
+              <span class="chip">gemini-3.1-flash-lite</span>
+              <span class="chip">gemini-3-flash-preview</span>
+              <span class="chip">gemini-3.1-pro-preview</span>
+              <span class="chip">gemini-2.5-flash-image</span>
+              <span class="chip">gemini-2.5-pro</span>
+              <span class="chip">gemini-flash-latest</span>
+              <span class="chip">gemini-flash-lite-latest</span>
+              <span class="chip">gemini-2.5-flash-lite</span>
+              <span class="chip">gemini-2.0-flash-lite</span>
+              <span class="chip">gemini-robotics-er-1.6-preview</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </article>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PAGE 3 · CHAT
+       ═══════════════════════════════════════════════════════════════════ -->
+  <article class="page" data-page="3" role="tabpanel">
+    <div class="article" style="max-width:none;">
+      <h1>Chat</h1>
+      <p class="standfirst">
+        Interact with the selected Gemini model. The conversation is kept in
+        memory only — nothing is stored on disk or sent to any server besides
+        Google.
+      </p>
+
+      <div class="toolbar">
+        <span class="badge b" id="chatModelBadge">no model</span>
+        <button class="btn sm" onclick="App.clearChat()">Clear chat</button>
+        <div class="spacer"></div>
+        <span class="badge" id="chatCountBadge">0 messages</span>
+      </div>
+
+      <div class="chat-wrap" id="chatWrap">
+        <div class="chat-log" id="chatLog">
+          <div class="msg ai">
+            <div class="avatar">G</div>
+            <div class="bubble">
+              <div class="meta">Gemini · system</div>
+              Hi — I'm Gemini. Select a model in the Models tab, then ask me
+              anything. Try <code>explain this regex</code>,
+              <code>write a bash script to…</code>, or
+              <code>summarise this idea</code>.
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-wrap">
+          <textarea class="chat-input" id="chatInput" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for newline)" disabled></textarea>
+          <button class="btn primary" id="chatSendBtn" onclick="App.sendChat()" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PAGE 4 · REFACTOR
+       ═══════════════════════════════════════════════════════════════════ -->
+  <article class="page" data-page="4" role="tabpanel">
+    <div class="article" style="max-width:none;">
+      <h1>Automated code refactoring</h1>
+      <p class="standfirst">
+        Paste source code, describe the refactoring you want, and the agent
+        will produce a complete refactored file plus a real unified diff. You
+        review before applying anything.
+      </p>
+
+      <div class="toolbar">
+        <span class="badge b" id="refactorModelBadge">no model</span>
+        <select class="select" id="refactorLang" style="width:auto;min-width:160px;">
+          <option value="">(auto-detect)</option>
+          <option value="python">Python</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="bash">Bash</option>
+          <option value="go">Go</option>
+          <option value="rust">Rust</option>
+          <option value="java">Java</option>
+          <option value="c">C / C++</option>
+          <option value="ruby">Ruby</option>
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="sql">SQL</option>
+        </select>
+        <button class="btn sm" onclick="App.loadSample()">Load sample</button>
+        <button class="btn sm" onclick="App.clearRefactor()">Clear</button>
+      </div>
+
+      <div class="refactor-grid">
+        <div class="editor-pane">
+          <div class="editor-head">
+            <span class="editor-title">Source code</span>
+            <span class="badge" id="srcLines">0 lines</span>
+          </div>
+          <textarea class="editor-body" id="srcCode" placeholder="Paste your source code here…" spellcheck="false"></textarea>
+        </div>
+
+        <div class="editor-pane">
+          <div class="editor-head">
+            <span class="editor-title">Refactored code</span>
+            <div style="display:flex;gap:6px;">
+              <button class="btn sm" onclick="App.copyRefactored()">Copy</button>
+              <button class="btn sm" onclick="App.downloadRefactored()">Download</button>
+            </div>
+          </div>
+          <div class="diff-body" id="refactoredOutput" style="white-space:pre;">Refactored output will appear here.</div>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Refactoring instructions</span>
+        <textarea class="textarea" id="refactorInstructions" placeholder="e.g. extract the parsing logic into pure functions, add type hints, keep behaviour identical"></textarea>
+        <span class="field-hint">
+          Be specific. The agent will return the complete refactored file
+          inside a single code fence, which the app extracts automatically.
+        </span>
+      </label>
+
+      <div class="toolbar">
+        <button class="btn primary" id="refactorBtn" onclick="App.runRefactor()">
+          <span id="refactorBtnLabel">Run refactoring agent</span>
+        </button>
+        <button class="btn" id="diffToggleBtn" onclick="App.toggleDiff()" style="display:none;">Show diff</button>
+        <div class="spacer"></div>
+        <button class="btn good" id="applyBtn" onclick="App.applyRefactored()" style="display:none;">Apply to source</button>
+      </div>
+
+      <div id="refactorStatus"></div>
+
+      <div id="diffPanel" style="display:none;">
+        <h2>Unified diff</h2>
+        <div class="editor-pane">
+          <div class="editor-head">
+            <span class="editor-title">Diff · source → refactored</span>
+            <span class="badge" id="diffStats">—</span>
+          </div>
+          <div class="diff-body" id="diffOutput"></div>
+        </div>
+      </div>
+
+      <h2>How the agent works</h2>
+      <ol>
+        <li>Your source code and instructions are assembled into a prompt with a strict system instruction.</li>
+        <li>The prompt is sent to the selected model with a temperature of 0.2 for reproducibility.</li>
+        <li>The model returns the complete refactored file inside a single triple-backtick code fence.</li>
+        <li>The app extracts the fence, computes a unified diff against the source, and displays both.</li>
+        <li>You review, then apply — the original source is replaced in the editor, not on disk.</li>
+      </ol>
+
+      <div class="note">
+        <strong>Tip.</strong> For large files, choose a Pro-tier model. The
+        Flash-Lite tiers are excellent for small scripts and snippets but may
+        truncate on very long inputs.
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PAGE 5 · COLOPHON
+       ═══════════════════════════════════════════════════════════════════ -->
+  <article class="page" data-page="5" role="tabpanel">
+    <div class="grid-2col">
+      <div class="article">
+        <h1>Colophon</h1>
+        <p class="standfirst">
+          About this issue, and where to go next.
+        </p>
+
+        <h2>About</h2>
+        <p>
+          This is a single-file, browser-rendered web app for the Gemini API.
+          It is one HTML document with embedded CSS and JavaScript — no build
+          step, no dependencies, no server. The magazine aesthetic is a
+          presentation layer over a working API client and code refactoring
+          agent.
+        </p>
+
+        <h2>What this app actually does</h2>
+        <ul>
+          <li>Saves a Gemini API key in browser <code class="inline">localStorage</code>.</li>
+          <li>Fetches the live model list from the Generative Language API.</li>
+          <li>Falls back to a bundled list of ten models when the API is unreachable.</li>
+          <li>Chats with the selected model, keeping history in memory.</li>
+          <li>Refactors code with a strict system prompt and shows a unified diff.</li>
+        </ul>
+
+        <h2>The Gemini CLI project</h2>
+        <ul>
+          <li><strong>Repository</strong> — <a href="https://github.com/google-gemini/gemini-cli" target="_blank" rel="noopener">github.com/google-gemini/gemini-cli</a></li>
+          <li><strong>Package</strong> — <code class="inline">@google/gemini-cli</code> on npm</li>
+          <li><strong>Licence</strong> — Apache License 2.0</li>
+          <li><strong>Built by</strong> — Google and the open-source community</li>
+        </ul>
+
+        <h2>API reference</h2>
+        <ul>
+          <li><code class="inline">GET /v1beta/models</code> — list models</li>
+          <li><code class="inline">POST /v1beta/models/{model}:generateContent</code> — generate a response</li>
+          <li>Auth via <code class="inline">?key=API_KEY</code> query parameter</li>
+        </ul>
+
+        <h2>Credits</h2>
+        <p>
+          Gemini CLI is built with care by Google and the open-source
+          community. This web app is an independent presentation layer and is
+          not an official Google product.
+        </p>
+
+        <h2>The end</h2>
+        <p style="font-family:var(--serif);font-style:italic;color:var(--ink-dim);">
+          Thanks for reading. Now go and type something.
+        </p>
+      </div>
+
+      <aside class="sidebar">
+        <div class="box">
+          <div class="box-head">This issue</div>
+          <div class="box-body">
+            <div class="stat-row"><span class="k">Issue</span><span class="v">01</span></div>
+            <div class="stat-row"><span class="k">Volume</span><span class="v">1</span></div>
+            <div class="stat-row"><span class="k">Format</span><span class="v purp">HTML · CSS · JS</span></div>
+            <div class="stat-row"><span class="k">Dependencies</span><span class="v good">none</span></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Storage keys</div>
+          <div class="box-body">
+            <ul class="mini-list">
+              <li><b>gemini.apiKey</b> — your API key</li>
+              <li><b>gemini.model</b> — selected model</li>
+              <li><b>gemini.models</b> — cached model list</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">Clear everything</div>
+          <div class="box-body">
+            <button class="btn block bad" onclick="App.wipe()">Wipe all data</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </article>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer class="foot">
+    <div>Gemini CLI · The Terminal Edition · Issue 01</div>
+    <div>
+      <a href="https://github.com/google-gemini/gemini-cli" target="_blank" rel="noopener">Repository</a>
+      &nbsp;·&nbsp;
+      <a href="https://www.npmjs.com/package/@google/gemini-cli" target="_blank" rel="noopener">npm</a>
+      &nbsp;·&nbsp;
+      Apache 2.0
+    </div>
+  </footer>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  "use strict";
+
+  // ─── Constants ──────────────────────────────────────────────────────
+  var API_BASE   = "https://generativelanguage.googleapis.com/v1beta";
+  var GH_API     = "https://api.github.com/repos/google-gemini/gemini-cli";
+  var NPM_LATEST = "https://registry.npmjs.org/@google%2Fgemini-cli/latest";
+  var PAGE_COUNT = 6;
+
+  var LS_KEY     = "gemini.apiKey";
+  var LS_MODEL   = "gemini.model";
+  var LS_MODELS  = "gemini.models";
+
+  var FALLBACK_MODELS = [
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
+    "gemini-2.5-flash-image",
+    "gemini-2.5-pro",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+    "gemini-robotics-er-1.6-preview"
+  ];
+
+  var MODEL_DESCRIPTIONS = {
+    "gemini-3.1-flash-lite":        "Fastest Gemini 3 tier. Ideal for chat and quick refactors.",
+    "gemini-3-flash-preview":       "Preview Flash with Gemini 3 reasoning. Great all-rounder.",
+    "gemini-3.1-pro-preview":       "Highest reasoning tier. Best for complex refactoring.",
+    "gemini-2.5-flash-image":       "Multimodal image model. Generates and edits images.",
+    "gemini-2.5-pro":               "Stable flagship. Production-ready.",
+    "gemini-flash-latest":          "Rolling alias pointing at the newest Flash model.",
+    "gemini-flash-lite-latest":     "Rolling alias pointing at the newest Flash-Lite model.",
+    "gemini-2.5-flash-lite":        "Efficient 2.5 tier for high-volume use.",
+    "gemini-2.0-flash-lite":        "Legacy 2.0 Lite. Fast and cheap.",
+    "gemini-robotics-er-1.6-preview":"Embodied-reasoning research preview for robotics."
+  };
+
+  function tagFor(name) {
+    if (/-pro/.test(name)) return { cls: "pro", label: "PRO" };
+    if (/-flash-image/.test(name)) return { cls: "image", label: "IMAGE" };
+    if (/robotics/.test(name)) return { cls: "robotics", label: "ROBOTICS" };
+    if (/-lite/.test(name)) return { cls: "lite", label: "LITE" };
+    if (/flash/.test(name)) return { cls: "flash", label: "FLASH" };
+    if (/preview/.test(name)) return { cls: "preview", label: "PREVIEW" };
+    return { cls: "", label: "MODEL" };
+  }
+
+  // ─── State ──────────────────────────────────────────────────────────
+  var state = {
+    page: 0,
+    apiKey: "",
+    model: "",
+    models: [],
+    modelsSource: "",
+    chat: [],           // { role, text, time }
+    busy: false,
+    refactoredCode: "",
+    sourceCode: ""
+  };
+
+  // ─── DOM helpers ────────────────────────────────────────────────────
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  function setText(sel, value) {
+    $$(sel).forEach(function (el) { el.textContent = value; });
+  }
+
+  function thousands(n) {
+    if (n === null || n === undefined || n === "—") return "—";
+    var s = String(n);
+    if (!/^\d+$/.test(s)) return s;
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function escapeHTML(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // Very small markdown-ish renderer for chat bubbles
+  function renderMarkdown(text) {
+    var html = escapeHTML(text);
+    // fenced code blocks
+    html = html.replace(/```([\s\S]*?)```/g, function (_, code) {
+      return "<pre>" + code.replace(/^\n/, "") + "</pre>";
+    });
+    // inline code
+    html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    // bold
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    // italics (careful, not inside code)
+    html = html.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?]|$)/g, "$1<em>$2</em>");
+    return html;
+  }
+
+  // ─── Toast ──────────────────────────────────────────────────────────
+  var toastEl = $("#toast");
+  var toastTimer = null;
+  function toast(msg, kind) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.className = "toast";
+    if (kind) toastEl.classList.add(kind);
+    // force reflow so the transition replays
+    void toastEl.offsetWidth;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove("show");
+    }, 2600);
+  }
+
+  // ─── Progress bar ───────────────────────────────────────────────────
+  var progressEl = $("#progress");
+  function setProgress(pct) {
+    if (progressEl) progressEl.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  }
+  window.addEventListener("scroll", function () {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    var pct = max > 0 ? (h.scrollTop / max) * 100 : 0;
+    setProgress(pct);
+  }, { passive: true });
+
+  // ─── Clock ──────────────────────────────────────────────────────────
+  function updateClock() {
+    var d = new Date();
+    var days   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var s = days[d.getDay()] + " " + d.getDate() + " " + months[d.getMonth()] + " " +
+            d.getFullYear() + " · " +
+            String(d.getHours()).padStart(2, "0") + ":" +
+            String(d.getMinutes()).padStart(2, "0") + ":" +
+            String(d.getSeconds()).padStart(2, "0");
+    var el = $("#stripDate");
+    if (el) el.textContent = s;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ─── Storage ────────────────────────────────────────────────────────
+  function safeGet(store, key) {
+    try { return store.getItem(key) || ""; } catch (e) { return ""; }
+  }
+  function safeSet(store, key, val) {
+    try { store.setItem(key, val); } catch (e) { /* quota / private mode */ }
+  }
+  function safeRemove(store, key) {
+    try { store.removeItem(key); } catch (e) {}
+  }
+
+  function loadFromStorage() {
+    state.apiKey = safeGet(localStorage, LS_KEY) || safeGet(sessionStorage, LS_KEY);
+    state.model  = safeGet(localStorage, LS_MODEL);
+    try {
+      var raw = safeGet(localStorage, LS_MODELS);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) state.models = parsed;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function persistKey(key) {
+    if (key) safeSet(localStorage, LS_KEY, key);
+    else safeRemove(localStorage, LS_KEY);
+  }
+  function persistModel(m) {
+    if (m) safeSet(localStorage, LS_MODEL, m);
+    else safeRemove(localStorage, LS_MODEL);
+  }
+  function persistModels(list) {
+    try { safeSet(localStorage, LS_MODELS, JSON.stringify(list)); }
+    catch (e) { /* quota exceeded — ignore */ }
+  }
+
+  // ─── Tab navigation ─────────────────────────────────────────────────
+  function showPage(idx, opts) {
+    if (idx < 0 || idx >= PAGE_COUNT) return;
+    state.page = idx;
+
+    $$(".tab").forEach(function (t) {
+      var on = Number(t.getAttribute("data-page")) === idx;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+    });
+
+    $$(".page").forEach(function (p) {
+      var on = Number(p.getAttribute("data-page")) === idx;
+      p.classList.toggle("active", on);
+    });
+
+    var activeTab = $(".tab.active");
+    if (activeTab && activeTab.scrollIntoView) {
+      try { activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" }); }
+      catch (e) { activeTab.scrollIntoView(false); }
+    }
+
+    if (!opts || opts.scroll !== false) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    if (history.replaceState) history.replaceState(null, "", "#" + idx);
+
+    if (idx === 3) setTimeout(function () { var i = $("#chatInput"); if (i && !i.disabled) i.focus(); }, 260);
+  }
+
+  // ─── HTTP with timeout ──────────────────────────────────────────────
+  function httpJSON(url, opts, timeoutMs) {
+    opts = opts || {};
+    timeoutMs = timeoutMs || 60000;
+    return new Promise(function (resolve, reject) {
+      if (typeof fetch !== "function") {
+        reject(new Error("fetch is not available in this browser"));
+        return;
+      }
+      var controller = null;
+      var timer = null;
+      if (typeof AbortController === "function") {
+        controller = new AbortController();
+        opts.signal = controller.signal;
+        timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+      }
+      fetch(url, opts).then(function (res) {
+        return res.text().then(function (text) {
+          if (timer) clearTimeout(timer);
+          var data;
+          try { data = text ? JSON.parse(text) : {}; }
+          catch (e) { data = { _raw: text }; }
+          resolve({ ok: res.ok, status: res.status, data: data });
+        });
+      }).catch(function (err) {
+        if (timer) clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
+  function apiError(data, fallback) {
+    if (data && data.error && data.error.message) return data.error.message;
+    if (data && data._raw) return data._raw.slice(0, 300);
+    return fallback || "unknown error";
+  }
+
+  // ─── Rendering: status pip ──────────────────────────────────────────
+  function refreshPips() {
+    var pipKey = $("#pipKey");
+    if (pipKey) pipKey.className = "pip " + (state.apiKey ? "ok" : "");
+    var pipM = $("#pipModels");
+    if (pipM) pipM.className = "pip " + (state.models.length ? "ok" : (state.apiKey ? "warn" : ""));
+
+    var dot = $("#connDot");
+    var lbl = $("#connLabel");
+    if (dot && lbl) {
+      if (state.apiKey && state.model) { dot.className = "dot"; lbl.textContent = "Ready"; }
+      else if (state.apiKey)          { dot.className = "dot"; lbl.textContent = "Key saved"; }
+      else                             { dot.className = "dot off"; lbl.textContent = "No key"; }
+    }
+
+    setText("#stripModel", state.model || "no model");
+    setText("#metaModel", state.model || "no model");
+    setText("#coverModel", state.model || "none");
+    setText("#coverKeyState", state.apiKey ? "saved" : "not set");
+    setText("#coverModelsCount", String(state.models.length));
+    setText("#coverChatCount", String(state.chat.filter(function (m) { return m.role === "user"; }).length));
+    setText("#chatModelBadge", state.model || "no model");
+    setText("#refactorModelBadge", state.model || "no model");
+    setText("#selectedModelSide", state.model || "none");
+    setText("#selectedModelSource", state.modelsSource || "—");
+    setText("#modelsCountSide", String(state.models.length));
+    setText("#modelCountBadge", state.models.length + " model" + (state.models.length === 1 ? "" : "s"));
+    setText("#chatCountBadge", state.chat.length + " message" + (state.chat.length === 1 ? "" : "s"));
+
+    var chatInput = $("#chatInput");
+    var chatSend = $("#chatSendBtn");
+    var canChat = !!(state.apiKey && state.model);
+    if (chatInput) chatInput.disabled = !canChat;
+    if (chatSend) chatSend.disabled = !canChat || state.busy;
+
+    // API key status box
+    setText("#keyStateBox", state.apiKey ? "yes" : "no");
+    if (state.apiKey) {
+      var masked = state.apiKey.length > 10
+        ? state.apiKey.slice(0, 6) + "…" + state.apiKey.slice(-4)
+        : "•••";
+      setText("#keyMaskedBox", masked);
+    } else {
+      setText("#keyMaskedBox", "—");
+    }
+  }
+
+  // ─── API Key page ───────────────────────────────────────────────────
+  function saveKey() {
+    var input = $("#apiKeyInput");
+    if (!input) return;
+    var v = input.value.trim();
+    if (!v) { toast("Please paste a key first", "warn"); return; }
+    if (!/^AIza[0-9A-Za-z_\-]{20,}$/.test(v)) {
+      // not a hard failure — some keys have different shapes
+      toast("Key saved (unusual format — validate to confirm)", "warn");
+    } else {
+      toast("Key saved", "good");
+    }
+    state.apiKey = v;
+    persistKey(v);
+    refreshPips();
+    renderKeyStatus("ok", "Key saved to localStorage.");
+    input.value = "";
+    input.type = "password";
+    var btn = $("#toggleKeyBtn");
+    if (btn) btn.textContent = "Show";
+  }
+
+  function clearKey() {
+    state.apiKey = "";
+    persistKey("");
+    var input = $("#apiKeyInput");
+    if (input) input.value = "";
+    refreshPips();
+    renderKeyStatus("warn", "Key cleared.");
+    toast("Key cleared", "warn");
+  }
+
+  function toggleKeyVisibility() {
+    var input = $("#apiKeyInput");
+    var btn = $("#toggleKeyBtn");
+    if (!input || !btn) return;
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "Hide";
+    } else {
+      input.type = "password";
+      btn.textContent = "Show";
+    }
+  }
+
+  function renderKeyStatus(kind, msg) {
+    var el = $("#keyStatus");
+    if (!el) return;
+    var cls = kind === "ok" ? "info" : (kind === "bad" ? "danger" : "note");
+    el.innerHTML = '<div class="' + cls + '"><strong>' +
+      (kind === "ok" ? "Success." : kind === "bad" ? "Failed." : "Notice.") +
+      '</strong> ' + escapeHTML(msg) + '</div>';
+  }
+
+  function validateKey() {
+    if (!state.apiKey) {
+      var input = $("#apiKeyInput");
+      if (input && input.value.trim()) {
+        state.apiKey = input.value.trim();
+        persistKey(state.apiKey);
+      }
+    }
+    if (!state.apiKey) {
+      renderKeyStatus("bad", "No key to validate. Paste one first.");
+      toast("No key to validate", "warn");
+      return;
+    }
+
+    renderKeyStatus("ok", "Validating…");
+    var url = API_BASE + "/models?key=" + encodeURIComponent(state.apiKey) + "&pageSize=1";
+    httpJSON(url, {}, 20000).then(function (res) {
+      if (!res.ok || (res.data && res.data.error)) {
+        var msg = apiError(res.data, "HTTP " + res.status);
+        renderKeyStatus("bad", msg);
+        toast("Validation failed", "bad");
+        return;
+      }
+      renderKeyStatus("ok", "Key is valid. You can now fetch the full model list.");
+      toast("Key is valid", "good");
+      refreshPips();
+    }).catch(function (err) {
+      var msg = err && err.name === "AbortError"
+        ? "Request timed out."
+        : (err && err.message) || "Network error.";
+      renderKeyStatus("bad", msg);
+      toast("Validation failed", "bad");
+    });
+  }
+
+  // ─── Models page ────────────────────────────────────────────────────
+  function fetchModels() {
+    if (!state.apiKey) {
+      toast("Save an API key first", "warn");
+      showPage(1);
+      return;
+    }
+
+    setBusy(true);
+    setText("#fetchBtnLabel", "Fetching…");
+    renderModelStatus("note", "Fetching model list from the Gemini API…");
+
+    var url = API_BASE + "/models?key=" + encodeURIComponent(state.apiKey) + "&pageSize=200";
+    httpJSON(url, {}, 30000).then(function (res) {
+      setBusy(false);
+      setText("#fetchBtnLabel", "Fetch models");
+
+      if (!res.ok || (res.data && res.data.error)) {
+        var msg = apiError(res.data, "HTTP " + res.status);
+        renderModelStatus("danger", "API error: " + msg + " — using bundled list.");
+        useFallback("api-error");
+        return;
+      }
+
+      var list = (res.data && res.data.models) || [];
+      var names = [];
+      list.forEach(function (m) {
+        var n = (m && m.name) || "";
+        if (n.indexOf("models/") === 0) n = n.slice(7);
+        if (!n) return;
+        // Skip non-generative endpoints
+        if (/embedding|embed|aqa/i.test(n)) return;
+        names.push(n);
+      });
+
+      if (!names.length) {
+        renderModelStatus("danger", "API returned no generative models — using bundled list.");
+        useFallback("empty");
+        return;
+      }
+
+      // De-duplicate while preserving order
+      var seen = {};
+      var unique = [];
+      names.forEach(function (n) {
+        if (!seen[n]) { seen[n] = 1; unique.push(n); }
+      });
+
+      state.models = unique;
+      state.modelsSource = "api";
+      persistModels(unique);
+      renderModelStatus("info", "Fetched " + unique.length + " models from the API.");
+      renderModelGrid();
+      refreshPips();
+      toast("Fetched " + unique.length + " models", "good");
+    }).catch(function (err) {
+      setBusy(false);
+      setText("#fetchBtnLabel", "Fetch models");
+      var msg = err && err.name === "AbortError"
+        ? "Request timed out."
+        : (err && err.message) || "Network error.";
+      renderModelStatus("danger", msg + " — using bundled list.");
+      useFallback("network");
+    });
+  }
+
+  function useFallback(reason) {
+    state.models = FALLBACK_MODELS.slice();
+    state.modelsSource = "bundled";
+    persistModels(state.models);
+    renderModelGrid();
+    refreshPips();
+    var prefix = reason === "api-error" ? "API error" :
+                 reason === "empty" ? "Empty API response" :
+                 reason === "network" ? "Network error" : "Notice";
+    renderModelStatus("note", prefix + " — loaded " + FALLBACK_MODELS.length + " bundled models.");
+    toast("Loaded bundled models", "warn");
+  }
+
+  function loadFallbackModels() {
+    useFallback("manual");
+  }
+
+  function renderModelStatus(kind, msg) {
+    var el = $("#modelStatus");
+    if (!el) return;
+    var cls = kind === "info" ? "info" : kind === "danger" ? "danger" : "note";
+    el.innerHTML = '<div class="' + cls + '"><strong>' +
+      (kind === "info" ? "Success." : kind === "danger" ? "Failed." : "Notice.") +
+      '</strong> ' + escapeHTML(msg) + '</div>';
+  }
+
+  function renderModelGrid() {
+    var grid = $("#modelGrid");
+    if (!grid) return;
+    if (!state.models.length) {
+      grid.innerHTML = '<div class="info" style="grid-column:1/-1;">No models loaded yet.</div>';
+      return;
+    }
+    var html = "";
+    state.models.forEach(function (name) {
+      var tag = tagFor(name);
+      var desc = MODEL_DESCRIPTIONS[name] || "Live model from the Gemini API.";
+      var selected = state.model === name;
+      html += '<button class="model-card' + (selected ? " selected" : "") + '" data-model="' + escapeHTML(name) + '" onclick="App.selectModel(\'' + name.replace(/'/g, "\\'") + '\')">' +
+        '<div class="model-name">' + escapeHTML(name) + '</div>' +
+        '<div class="model-desc">' + escapeHTML(desc) + '</div>' +
+        '<div class="model-tags">' +
+          '<span class="model-tag ' + tag.cls + '">' + tag.label + '</span>' +
+          '<span class="model-tag">GEMINI</span>' +
+        '</div>' +
+      '</button>';
+    });
+    grid.innerHTML = html;
+  }
+
+  function selectModel(name) {
+    state.model = name;
+    persistModel(name);
+    renderModelGrid();
+    refreshPips();
+    toast("Selected " + name, "good");
+  }
+
+  // ─── Chat ───────────────────────────────────────────────────────────
+  function pushMessage(role, text) {
+    state.chat.push({ role: role, text: text, time: Date.now() });
+    renderChat();
+    refreshPips();
+  }
+
+  function renderChat() {
+    var log = $("#chatLog");
+    if (!log) return;
+
+    // Preserve the system welcome message at the top
+    var html = '<div class="msg ai">' +
+      '<div class="avatar">G</div>' +
+      '<div class="bubble"><div class="meta">Gemini · system</div>' +
+      'Hi — I\'m Gemini. Select a model in the Models tab, then ask me anything.</div>' +
+      '</div>';
+
+    state.chat.forEach(function (m) {
+      if (m.role === "user") {
+        html += '<div class="msg user">' +
+          '<div class="avatar">YOU</div>' +
+          '<div class="bubble"><div class="meta">You</div>' +
+          escapeHTML(m.text) +
+          '</div></div>';
+      } else if (m.role === "ai") {
+        html += '<div class="msg ai">' +
+          '<div class="avatar">G</div>' +
+          '<div class="bubble"><div class="meta">' + escapeHTML(state.model || "Gemini") + '</div>' +
+          renderMarkdown(m.text) +
+          '</div></div>';
+      } else if (m.role === "typing") {
+        html += '<div class="msg ai" id="typingMsg">' +
+          '<div class="avatar">G</div>' +
+          '<div class="bubble"><div class="meta">thinking…</div>' +
+          '<div class="typing"><span></span><span></span><span></span></div>' +
+          '</div></div>';
+      } else if (m.role === "error") {
+        html += '<div class="msg ai">' +
+          '<div class="avatar">!</div>' +
+          '<div class="bubble" style="background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.3);">' +
+          '<div class="meta" style="color:var(--bad);">Error</div>' +
+          escapeHTML(m.text) +
+          '</div></div>';
+      }
+    });
+
+    log.innerHTML = html;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function sendChat() {
+    if (state.busy) return;
+    var input = $("#chatInput");
+    if (!input) return;
+    var text = input.value.trim();
+    if (!text) return;
+
+    if (!state.apiKey) { toast("Save an API key first", "warn"); showPage(1); return; }
+    if (!state.model)  { toast("Select a model first", "warn");  showPage(2); return; }
+
+    pushMessage("user", text);
+    input.value = "";
+    input.style.height = "auto";
+
+    state.chat.push({ role: "typing", text: "" });
+    renderChat();
+    state.busy = true;
+    refreshPips();
+
+    // Build contents array from prior user/ai turns (excluding typing/error)
+    var contents = [];
+    state.chat.forEach(function (m) {
+      if (m.role === "user") contents.push({ role: "user", parts: [{ text: m.text }] });
+      else if (m.role === "ai") contents.push({ role: "model", parts: [{ text: m.text }] });
+    });
+
+    var body = {
+      contents: contents,
+      systemInstruction: {
+        parts: [{ text: "You are a helpful terminal and coding assistant. Answer concisely and prefer plain text. Use code fences only when sharing code. When you write code, match the language the user is using." }]
+      },
+      generationConfig: {
+        temperature: 0.6,
+        maxOutputTokens: 4096
+      }
+    };
+
+    var url = API_BASE + "/models/" + encodeURIComponent(state.model) + ":generateContent?key=" +
+              encodeURIComponent(state.apiKey);
+
+    httpJSON(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }, 90000).then(function (res) {
+      // Remove typing placeholder
+      state.chat = state.chat.filter(function (m) { return m.role !== "typing"; });
+
+      if (!res.ok || (res.data && res.data.error)) {
+        var msg = apiError(res.data, "HTTP " + res.status);
+        state.chat.push({ role: "error", text: msg });
+        toast("Request failed", "bad");
+      } else {
+        var reply = extractText(res.data);
+        if (!reply) reply = "(empty response)";
+        state.chat.push({ role: "ai", text: reply });
+        toast("Reply received", "good");
+      }
+
+      state.busy = false;
+      renderChat();
+      refreshPips();
+    }).catch(function (err) {
+      state.chat = state.chat.filter(function (m) { return m.role !== "typing"; });
+      var msg = err && err.name === "AbortError"
+        ? "Request timed out."
+        : (err && err.message) || "Network error.";
+      state.chat.push({ role: "error", text: msg });
+      state.busy = false;
+      renderChat();
+      refreshPips();
+      toast("Request failed", "bad");
+    });
+  }
+
+  function extractText(data) {
+    if (!data) return "";
+    var cands = data.candidates || [];
+    if (!cands.length) return "";
+    var c = cands[0];
+    var parts = (c.content && c.content.parts) || [];
+    var out = "";
+    parts.forEach(function (p) { if (p && typeof p.text === "string") out += p.text; });
+    return out;
+  }
+
+  function clearChat() {
+    state.chat = [];
+    renderChat();
+    refreshPips();
+    toast("Chat cleared", "warn");
+  }
+
+  // ─── Refactor ───────────────────────────────────────────────────────
+  function runRefactor() {
+    if (state.busy) return;
+    if (!state.apiKey) { toast("Save an API key first", "warn"); showPage(1); return; }
+    if (!state.model)  { toast("Select a model first", "warn");  showPage(2); return; }
+
+    var srcEl = $("#srcCode");
+    var instEl = $("#refactorInstructions");
+    var langEl = $("#refactorLang");
+    if (!srcEl || !instEl) return;
+
+    var src = srcEl.value;
+    var inst = instEl.value.trim();
+    var lang = langEl ? langEl.value : "";
+
+    if (!src.trim()) { toast("Paste some source code first", "warn"); return; }
+    if (!inst)       { toast("Describe the refactoring", "warn"); return; }
+
+    state.sourceCode = src;
+
+    var system = "You are a senior software engineer performing a targeted refactoring.\n" +
+      "Rules:\n" +
+      "- Return the COMPLETE refactored file inside a single triple-backtick code fence.\n" +
+      "- Do not include commentary before or after the code fence.\n" +
+      "- Preserve the original file's public behaviour unless the instruction says otherwise.\n" +
+      "- Keep the same language and framework.\n" +
+      "- Preserve formatting conventions of the language.\n" +
+      (lang ? "- The file is written in " + lang + ".\n" : "");
+
+    var prompt = "Refactoring instruction:\n" + inst + "\n\n" +
+      "--- BEGIN SOURCE ---\n" + src + "\n--- END SOURCE ---";
+
+    setBusy(true);
+    setText("#refactorBtnLabel", "Running agent…");
+    renderRefactorStatus("note", "Sending to " + state.model + "… (this can take 10-30 s)");
+
+    var body = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: system }] },
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192
+      }
+    };
+
+    var url = API_BASE + "/models/" + encodeURIComponent(state.model) + ":generateContent?key=" +
+              encodeURIComponent(state.apiKey);
+
+    httpJSON(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }, 120000).then(function (res) {
+      setBusy(false);
+      setText("#refactorBtnLabel", "Run refactoring agent");
+
+      if (!res.ok || (res.data && res.data.error)) {
+        var msg = apiError(res.data, "HTTP " + res.status);
+        renderRefactorStatus("danger", "API error: " + msg);
+        toast("Refactor failed", "bad");
+        return;
+      }
+
+      var reply = extractText(res.data);
+      if (!reply) {
+        renderRefactorStatus("danger", "Model returned an empty response.");
+        toast("Empty response", "bad");
+        return;
+      }
+
+      var code = extractCodeFence(reply) || reply;
+      state.refactoredCode = code;
+      renderRefactored(code);
+      renderDiff(src, code);
+
+      $("#diffToggleBtn").style.display = "";
+      $("#applyBtn").style.display = "";
+
+      var added = 0, removed = 0;
+      computeDiffStats(src, code).forEach(function (l) {
+        if (l.type === "add") added++;
+        else if (l.type === "del") removed++;
+      });
+
+      if (added === 0 && removed === 0) {
+        renderRefactorStatus("note", "Agent returned code identical to the source. Try more specific instructions.");
+        toast("No changes", "warn");
+      } else {
+        renderRefactorStatus("info", "Refactoring complete — " + added + " added, " + removed + " removed.");
+        toast("Refactoring complete", "good");
+      }
+    }).catch(function (err) {
+      setBusy(false);
+      setText("#refactorBtnLabel", "Run refactoring agent");
+      var msg = err && err.name === "AbortError"
+        ? "Request timed out."
+        : (err && err.message) || "Network error.";
+      renderRefactorStatus("danger", msg);
+      toast("Refactor failed", "bad");
+    });
+  }
+
+  function extractCodeFence(text) {
+    if (!text) return "";
+    // Prefer a fenced block that has a language tag or is the largest
+    var blocks = [];
+    var re = /```([a-zA-Z0-9_+\-]*)\n?([\s\S]*?)```/g;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      blocks.push(m[2]);
+    }
+    if (!blocks.length) return "";
+    // Return the largest block
+    blocks.sort(function (a, b) { return b.length - a.length; });
+    return blocks[0];
+  }
+
+  function renderRefactored(code) {
+    var el = $("#refactoredOutput");
+    if (!el) return;
+    el.textContent = code || "(empty)";
+  }
+
+  function renderRefactorStatus(kind, msg) {
+    var el = $("#refactorStatus");
+    if (!el) return;
+    var cls = kind === "info" ? "info" : kind === "danger" ? "danger" : "note";
+    el.innerHTML = '<div class="' + cls + '"><strong>' +
+      (kind === "info" ? "Success." : kind === "danger" ? "Failed." : "Notice.") +
+      '</strong> ' + escapeHTML(msg) + '</div>';
+  }
+
+  // ─── Diff engine (LCS) ─────────────────────────────────────────────
+  function splitLines(s) {
+    if (!s) return [];
+    return s.replace(/\r\n/g, "\n").split("\n");
+  }
+
+  function lcsMatrix(a, b) {
+    var n = a.length, m = b.length;
+    // Cap to avoid pathological memory use
+    var MAX = 1200;
+    if (n > MAX || m > MAX) {
+      // Fallback: simple side-by-side
+      return null;
+    }
+    var dp = new Array(n + 1);
+    for (var i = 0; i <= n; i++) {
+      dp[i] = new Uint16Array(m + 1);
+    }
+    for (var i2 = 1; i2 <= n; i2++) {
+      for (var j2 = 1; j2 <= m; j2++) {
+        if (a[i2 - 1] === b[j2 - 1]) dp[i2][j2] = dp[i2 - 1][j2 - 1] + 1;
+        else dp[i2][j2] = Math.max(dp[i2 - 1][j2], dp[i2][j2 - 1]);
+      }
+    }
+    return dp;
+  }
+
+  function computeDiff(aText, bText) {
+    var a = splitLines(aText);
+    var b = splitLines(bText);
+    var dp = lcsMatrix(a, b);
+    var out = [];
+
+    if (!dp) {
+      // Fallback: whole-file replace
+      a.forEach(function (l) { out.push({ type: "del", text: l }); });
+      b.forEach(function (l) { out.push({ type: "add", text: l }); });
+      return out;
+    }
+
+    var i = a.length, j = b.length;
+    var stack = [];
+    while (i > 0 && j > 0) {
+      if (a[i - 1] === b[j - 1]) {
+        stack.push({ type: "ctx", text: a[i - 1] });
+        i--; j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        stack.push({ type: "del", text: a[i - 1] });
+        i--;
+      } else {
+        stack.push({ type: "add", text: b[j - 1] });
+        j--;
+      }
+    }
+    while (i > 0) { stack.push({ type: "del", text: a[i - 1] }); i--; }
+    while (j > 0) { stack.push({ type: "add", text: b[j - 1] }); j--; }
+    stack.reverse();
+    return stack;
+  }
+
+  function computeDiffStats(a, b) {
+    return computeDiff(a, b);
+  }
+
+  function renderDiff(aText, bText) {
+    var el = $("#diffOutput");
+    var statsEl = $("#diffStats");
+    if (!el) return;
+
+    var diff = computeDiff(aText, bText);
+    var add = 0, del = 0;
+    var html = "";
+    var lastType = "";
+    diff.forEach(function (d) {
+      if (d.type === "add") add++;
+      else if (d.type === "del") del++;
+      var cls = "diff-line " + d.type;
+      var prefix = d.type === "add" ? "+" : d.type === "del" ? "-" : " ";
+      html += '<span class="' + cls + '">' + escapeHTML(prefix + " " + d.text) + '</span>\n';
+    });
+    el.innerHTML = html || '<span class="diff-line ctx">(no changes)</span>';
+
+    if (statsEl) statsEl.textContent = "+" + add + "  −" + del;
+  }
+
+  function toggleDiff() {
+    var p = $("#diffPanel");
+    var btn = $("#diffToggleBtn");
+    if (!p) return;
+    var show = p.style.display === "none";
+    p.style.display = show ? "" : "none";
+    if (btn) btn.textContent = show ? "Hide diff" : "Show diff";
+    if (show) p.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function applyRefactored() {
+    if (!state.refactoredCode) { toast("Nothing to apply", "warn"); return; }
+    var srcEl = $("#srcCode");
+    if (!srcEl) return;
+    srcEl.value = state.refactoredCode;
+    updateSrcLines();
+    renderRefactorStatus("info", "Refactored code copied into the source editor. Original is still in the diff.");
+    toast("Applied to source editor", "good");
+  }
+
+  function copyRefactored() {
+    if (!state.refactoredCode) { toast("Nothing to copy", "warn"); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(state.refactoredCode).then(function () {
+        toast("Copied to clipboard", "good");
+      }).catch(function () {
+        toast("Clipboard blocked by browser", "bad");
+      });
+    } else {
+      // Fallback
+      var ta = document.createElement("textarea");
+      ta.value = state.refactoredCode;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); toast("Copied", "good"); }
+      catch (e) { toast("Copy failed", "bad"); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  function downloadRefactored() {
+    if (!state.refactoredCode) { toast("Nothing to download", "warn"); return; }
+    var langEl = $("#refactorLang");
+    var ext = "txt";
+    if (langEl && langEl.value) {
+      ext = { python: "py", javascript: "js", typescript: "ts", bash: "sh",
+              go: "go", rust: "rs", java: "java", c: "c", ruby: "rb",
+              html: "html", css: "css", sql: "sql" }[langEl.value] || "txt";
+    }
+    var blob = new Blob([state.refactoredCode], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "refactored." + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast("Download started", "good");
+  }
+
+  function clearRefactor() {
+    var s = $("#srcCode"); if (s) s.value = "";
+    var i = $("#refactorInstructions"); if (i) i.value = "";
+    var o = $("#refactoredOutput"); if (o) o.textContent = "Refactored output will appear here.";
+    var d = $("#diffOutput"); if (d) d.innerHTML = "";
+    var sEl = $("#refactorStatus"); if (sEl) sEl.innerHTML = "";
+    var dp = $("#diffPanel"); if (dp) dp.style.display = "none";
+    var db = $("#diffToggleBtn"); if (db) { db.style.display = "none"; db.textContent = "Show diff"; }
+    var ab = $("#applyBtn"); if (ab) ab.style.display = "none";
+    state.refactoredCode = "";
+    state.sourceCode = "";
+    updateSrcLines();
+    toast("Cleared", "warn");
+  }
+
+  function loadSample() {
+    var src = [
+      "# sample: poorly structured Python",
+      "def p(l):",
+      "    r=[]",
+      "    for x in l:",
+      "        if x%2==0:",
+      "            r.append(x*x)",
+      "    return r",
+      "",
+      "def m(a,b):",
+      "    c=a+b",
+      "    return c"
+    ].join("\n");
+    var inst = "Rename functions and variables to meaningful names, add type hints, add a short docstring to each function, and keep behaviour identical.";
+    var s = $("#srcCode"); if (s) s.value = src;
+    var i = $("#refactorInstructions"); if (i) i.value = inst;
+    var l = $("#refactorLang"); if (l) l.value = "python";
+    updateSrcLines();
+    toast("Sample loaded", "good");
+  }
+
+  function updateSrcLines() {
+    var s = $("#srcCode");
+    var el = $("#srcLines");
+    if (!s || !el) return;
+    var lines = s.value ? s.value.split("\n").length : 0;
+    el.textContent = lines + " line" + (lines === 1 ? "" : "s");
+  }
+
+  // ─── Live data (GitHub + npm) ──────────────────────────────────────
+  function loadNpm() {
+    return httpJSON(NPM_LATEST, {}, 12000).then(function (res) {
+      if (res.ok && res.data && res.data.version) {
+        setText("#statLatest", res.data.version);
+        setText("#metaVersion", res.data.version);
+      } else {
+        throw new Error("no version");
+      }
+    }).catch(function () {
+      setText("#statLatest", "see npm");
+      var metaV = $("#metaVersion");
+      if (metaV && metaV.textContent === "—") metaV.textContent = "1.x";
+    });
+  }
+
+  function loadGithub() {
+    return httpJSON(GH_API, {}, 12000).then(function (res) {
+      if (!res.ok || !res.data) throw new Error("bad");
+      var s = res.data.stargazers_count;
+      var f = res.data.forks_count;
+      var i = res.data.open_issues_count;
+      if (typeof s === "number") setText("#statStars", thousands(s));
+      if (typeof f === "number") setText("#statForks", thousands(f));
+      if (typeof i === "number") setText("#statIssues", thousands(i));
+      if (typeof s === "number") setText("#metaStars", thousands(s));
+    }).catch(function () {
+      // leave placeholders
+    });
+  }
+
+  function refreshLive() {
+    Promise.all([loadNpm(), loadGithub()]).then(function () {});
+  }
+
+  // ─── Busy helper ────────────────────────────────────────────────────
+  function setBusy(on) {
+    state.busy = !!on;
+    var chatSend = $("#chatSendBtn");
+    var refBtn = $("#refactorBtn");
+    if (chatSend) chatSend.disabled = on || !state.apiKey || !state.model;
+    if (refBtn) refBtn.disabled = on;
+  }
+
+  // ─── Keyboard shortcuts ─────────────────────────────────────────────
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target && e.target.tagName) || "";
+    var inField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+    // "/" focuses chat input from anywhere except form fields
+    if (e.key === "/" && !inField && state.page !== 3) {
+      e.preventDefault();
+      showPage(3);
+      setTimeout(function () { var i = $("#chatInput"); if (i && !i.disabled) i.focus(); }, 200);
+      return;
+    }
+
+    if (inField) {
+      // Chat textarea: Enter sends, Shift+Enter newline
+      if (state.page === 3 && e.target.id === "chatInput") {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendChat();
+        }
+      }
+      return;
+    }
+
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    switch (e.key) {
+      case "ArrowRight":
+        e.preventDefault();
+        showPage(state.page + 1);
+        break;
+      case "ArrowLeft":
+        e.preventDefault();
+        showPage(state.page - 1);
+        break;
+      case "r":
+      case "R":
+        e.preventDefault();
+        if (state.page === 2) fetchModels();
+        else { refreshLive(); toast("Refreshing…"); }
+        break;
+      case "1": case "2": case "3": case "4": case "5": case "6":
+        e.preventDefault();
+        showPage(Number(e.key) - 1);
+        break;
+    }
+  });
+
+  // ─── Chat input auto-grow ──────────────────────────────────────────
+  function setupChatInput() {
+    var i = $("#chatInput");
+    if (!i) return;
+    i.addEventListener("input", function () {
+      i.style.height = "auto";
+      i.style.height = Math.min(i.scrollHeight, 160) + "px";
+    });
+  }
+
+  // ─── Source code line counter ──────────────────────────────────────
+  function setupSrcCounter() {
+    var s = $("#srcCode");
+    if (!s) return;
+    s.addEventListener("input", updateSrcLines);
+    updateSrcLines();
+  }
+
+  // ─── Hash on load ───────────────────────────────────────────────────
+  function pageFromHash() {
+    var h = (location.hash || "").replace("#", "");
+    var n = parseInt(h, 10);
+    if (!isNaN(n) && n >= 0 && n < PAGE_COUNT) return n;
+    return 0;
+  }
+  window.addEventListener("hashchange", function () {
+    var n = pageFromHash();
+    if (n !== state.page) showPage(n, { scroll: true });
+  });
+
+  // ─── Reduce motion scroll override ─────────────────────────────────
+  (function () {
+    var mq = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mq && mq.matches) {
+      var orig = window.scrollTo.bind(window);
+      window.scrollTo = function (opts) {
+        if (opts && typeof opts === "object") {
+          orig({ top: opts.top, left: opts.left, behavior: "auto" });
+        } else {
+          orig.apply(null, arguments);
+        }
+      };
+    }
+  })();
+
+  // ─── Wipe all data ──────────────────────────────────────────────────
+  function wipe() {
+    if (!confirm("Wipe API key, model selection, and cached model list?")) return;
+    safeRemove(localStorage, LS_KEY);
+    safeRemove(localStorage, LS_MODEL);
+    safeRemove(localStorage, LS_MODELS);
+    safeRemove(sessionStorage, LS_KEY);
+    state.apiKey = "";
+    state.model = "";
+    state.models = [];
+    state.modelsSource = "";
+    state.chat = [];
+    renderChat();
+    renderModelGrid();
+    refreshPips();
+    toast("All data wiped", "warn");
+  }
+
+  // ─── Expose public API ─────────────────────────────────────────────
+  window.App = {
+    goto: showPage,
+    saveKey: saveKey,
+    clearKey: clearKey,
+    validateKey: validateKey,
+    toggleKeyVisibility: toggleKeyVisibility,
+    fetchModels: fetchModels,
+    loadFallbackModels: loadFallbackModels,
+    selectModel: selectModel,
+    sendChat: sendChat,
+    clearChat: clearChat,
+    runRefactor: runRefactor,
+    applyRefactored: applyRefactored,
+    copyRefactored: copyRefactored,
+    downloadRefactored: downloadRefactored,
+    toggleDiff: toggleDiff,
+    clearRefactor: clearRefactor,
+    loadSample: loadSample,
+    wipe: wipe,
+    // exposed for debugging
+    _state: state
+  };
+
+  // ─── Init ───────────────────────────────────────────────────────────
+  function init() {
+    loadFromStorage();
+
+    // If we have a stored key, pre-fill the input (as a masked value)
+    var input = $("#apiKeyInput");
+    if (input && state.apiKey) {
+      input.value = state.apiKey;
+      input.type = "password";
+    }
+
+    // Tab click handlers
+    $$(".tab").forEach(function (t) {
+      t.addEventListener("click", function () {
+        showPage(Number(t.getAttribute("data-page")));
+      });
+    });
+
+    // Restore page
+    showPage(pageFromHash(), { scroll: false });
+
+    // Render initial UI
+    renderModelGrid();
+    renderChat();
+    refreshPips();
+
+    // Wire up helpers
+    setupChatInput();
+    setupSrcCounter();
+
+    // Kick off live data
+    refreshLive();
+    setInterval(function () {
+      if (document.visibilityState === "visible") refreshLive();
+    }, 300000);
+
+    // If we already have a key and no models, silently try to fetch
+    if (state.apiKey && state.models.length === 0) {
+      // Delay slightly so the initial render isn't disturbed
+      setTimeout(function () { fetchModels(); }, 800);
+    }
+
+    // First-time hint
+    if (!state.apiKey) {
+      setTimeout(function () {
+        toast("Paste your API key in the API Key tab to get started", "warn");
+      }, 800);
+    } else if (state.apiKey && !state.model) {
+      setTimeout(function () {
+        toast("Select a model in the Models tab", "warn");
+      }, 800);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>
